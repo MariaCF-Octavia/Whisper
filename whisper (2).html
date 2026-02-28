@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whisper — Private AI Coaching</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #060606;
+    --surface: #0f0f0f;
+    --surface2: #151515;
+    --border: #1c1c1c;
+    --border2: #242424;
+    --gold: #c9a84c;
+    --gold-dim: #6b5526;
+    --gold-glow: rgba(201,168,76,0.08);
+    --text: #e2e2e2;
+    --text-muted: #444;
+    --text-dim: #666;
+    --red: #c0392b;
+    --green: #4ade80;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem 3rem;
+    position: relative;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.04) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 560px;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    text-align: center;
+    padding: 1rem 0 0.5rem;
+  }
+
+  .logo {
+    font-family: 'DM Serif Display', serif;
+    font-style: italic;
+    font-size: 2rem;
+    color: var(--gold);
+    letter-spacing: 0.05em;
+  }
+
+  .tagline {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-top: 0.3rem;
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .card-label {
+    font-size: 0.58rem;
+    color: var(--text-muted);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  input[type="password"],
+  input[type="text"],
+  textarea,
+  select {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    padding: 0.65rem 0.8rem;
+    border-radius: 2px;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+    resize: none;
+  }
+
+  input::placeholder, textarea::placeholder { color: var(--text-muted); }
+  input:focus, textarea:focus { border-color: var(--gold-dim); }
+
+  textarea { line-height: 1.6; min-height: 90px; }
+
+  /* ── MODE TABS ── */
+  .tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .tab {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.7rem;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    border-right: 1px solid var(--border);
+  }
+
+  .tab:last-child { border-right: none; }
+  .tab.active { background: var(--gold-glow); color: var(--gold); }
+
+  /* ── VISUALIZER ── */
+  .vis-wrap {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+  .vis-wrap.visible { opacity: 1; }
+  canvas { width: 100%; height: 48px; }
+
+  /* ── STATUS ── */
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    justify-content: center;
+    min-height: 20px;
+  }
+
+  .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .dot.listening { background: var(--gold); animation: pg 2s infinite; }
+  .dot.connected { background: var(--green); animation: pg2 2s infinite; }
+  .dot.error { background: var(--red); }
+
+  @keyframes pg {
+    0%,100% { box-shadow: 0 0 0 0 rgba(201,168,76,0.5); }
+    50% { box-shadow: 0 0 0 5px rgba(201,168,76,0); }
+  }
+  @keyframes pg2 {
+    0%,100% { box-shadow: 0 0 0 0 rgba(74,222,128,0.4); }
+    50% { box-shadow: 0 0 0 5px rgba(74,222,128,0); }
+  }
+
+  .status-text { font-size: 0.68rem; color: var(--text-muted); letter-spacing: 0.08em; }
+
+  /* ── TRANSCRIPT ── */
+  .transcript-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .transcript-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .transcript-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .transcript-title {
+    font-size: 0.58rem;
+    color: var(--text-muted);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .copy-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--gold-dim);
+    background: none;
+    border: 1px solid var(--gold-dim);
+    border-radius: 2px;
+    padding: 0.25rem 0.6rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .copy-btn:hover { color: var(--gold); border-color: var(--gold); }
+
+  .feed {
+    height: 280px;
+    overflow-y: auto;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    scroll-behavior: smooth;
+  }
+
+  .feed::-webkit-scrollbar { width: 2px; }
+  .feed::-webkit-scrollbar-thumb { background: var(--border2); }
+
+  .feed-empty {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    text-align: center;
+    margin: auto;
+    letter-spacing: 0.06em;
+  }
+
+  .msg {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    animation: fadeUp 0.2s ease;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(3px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg-label {
+    font-size: 0.55rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    opacity: 0.4;
+  }
+
+  .msg-body {
+    font-size: 0.8rem;
+    line-height: 1.55;
+    padding: 0.5rem 0.7rem;
+    border-radius: 2px;
+    border-left: 2px solid transparent;
+  }
+
+  .msg.you .msg-label { color: var(--text-dim); }
+  .msg.you .msg-body {
+    color: #999;
+    border-left-color: var(--border2);
+    background: rgba(255,255,255,0.02);
+  }
+
+  .msg.whisper .msg-label { color: var(--gold); }
+  .msg.whisper .msg-body {
+    color: var(--gold);
+    border-left-color: var(--gold-dim);
+    background: rgba(201,168,76,0.05);
+    font-weight: 500;
+  }
+
+  .msg.system .msg-label { color: var(--text-muted); }
+  .msg.system .msg-body {
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    font-style: italic;
+  }
+
+  /* ── BUTTONS ── */
+  .btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+  }
+
+  .btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.85rem 1rem;
+    border-radius: 2px;
+    border: 1px solid;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn:disabled { opacity: 0.25; cursor: not-allowed; }
+
+  .btn-main {
+    grid-column: 1 / -1;
+    background: var(--gold);
+    border-color: var(--gold);
+    color: #060606;
+    font-size: 0.78rem;
+    font-weight: 500;
+  }
+  .btn-main:hover:not(:disabled) { background: #ddb95a; border-color: #ddb95a; }
+
+  .btn-main.stop {
+    background: transparent;
+    border-color: var(--red);
+    color: var(--red);
+  }
+  .btn-main.stop:hover:not(:disabled) { background: rgba(192,57,43,0.1); }
+
+  .btn-secondary {
+    background: transparent;
+    border-color: var(--border2);
+    color: var(--text-muted);
+  }
+  .btn-secondary:hover:not(:disabled) { border-color: var(--gold-dim); color: var(--text); }
+
+  .btn-live {
+    background: transparent;
+    border-color: var(--gold-dim);
+    color: var(--gold-dim);
+  }
+  .btn-live:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); background: var(--gold-glow); }
+  .btn-live.active { border-color: var(--gold); color: var(--gold); background: var(--gold-glow); }
+
+  /* ── FOOTER ── */
+  .footer {
+    font-size: 0.58rem;
+    color: var(--text-muted);
+    text-align: center;
+    letter-spacing: 0.07em;
+    line-height: 1.7;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">Whisper</div>
+    <div class="tagline">Private AI coaching · Real-time · Invisible</div>
+  </div>
+
+  <!-- API Key -->
+  <div class="card">
+    <div class="card-label">OpenAI API Key</div>
+    <input type="password" id="apiKey" placeholder="sk-..." autocomplete="off" />
+  </div>
+
+  <!-- Context setup -->
+  <div class="card" id="contextCard">
+    <div class="card-label">Set the scene — what's happening?</div>
+    <textarea id="context" placeholder="e.g. VC pitch meeting. They're testing whether I'm fundable. Main concern will be my lack of experience. I need to sound confident, specific, and direct. Not over-explain."></textarea>
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+      <button class="btn btn-secondary" style="flex:1; font-size:0.62rem; padding:0.5rem;" onclick="loadPreset('vc')">VC Pitch</button>
+      <button class="btn btn-secondary" style="flex:1; font-size:0.62rem; padding:0.5rem;" onclick="loadPreset('interview')">Job Interview</button>
+      <button class="btn btn-secondary" style="flex:1; font-size:0.62rem; padding:0.5rem;" onclick="loadPreset('salary')">Salary Negotiation</button>
+    </div>
+  </div>
+
+  <!-- Mode -->
+  <div class="tabs">
+    <button class="tab active" id="tabPre" onclick="setMode('pre')">Before · Prep mode</button>
+    <button class="tab" id="tabLive" onclick="setMode('live')">Live · Whisper mode</button>
+  </div>
+
+  <!-- Visualizer -->
+  <div class="vis-wrap" id="visWrap">
+    <canvas id="waveform"></canvas>
+  </div>
+
+  <!-- Status -->
+  <div class="status-row">
+    <div class="dot" id="dot"></div>
+    <span class="status-text" id="statusText">Ready</span>
+  </div>
+
+  <!-- Transcript -->
+  <div class="transcript-wrap">
+    <div class="transcript-toolbar">
+      <span class="transcript-title">Full conversation</span>
+      <button class="copy-btn" onclick="copyTranscript()">Copy all</button>
+    </div>
+    <div class="feed" id="feed">
+      <div class="feed-empty" id="feedEmpty">Conversation will appear here</div>
+    </div>
+  </div>
+
+  <!-- Buttons -->
+  <div class="btn-row">
+    <button class="btn btn-main" id="mainBtn" onclick="toggleSession()">Start Session</button>
+    <button class="btn btn-live" id="liveBtn" onclick="goLive()" disabled>▶ Go Live</button>
+    <button class="btn btn-secondary" onclick="clearFeed()" id="clearBtn" disabled>Clear</button>
+  </div>
+
+  <div class="footer">
+    Mic → OpenAI Realtime → your earbuds. Nobody else hears anything.<br>
+    Key stays in your browser only · ~$3–5 per 20-min session
+  </div>
+
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────
+let pc = null, dc = null, localStream = null;
+let audioCtx = null, analyser = null, animId = null;
+let sessionActive = false;
+let currentMode = 'pre';
+let transcriptLog = []; // {role, text}
+
+// ─── PRESETS ─────────────────────────────────
+const PRESETS = {
+  vc: `VC pitch meeting. They're deciding if I'm fundable. They'll question my lack of experience, no diploma, no team yet. I need to sound confident, specific, not defensive. My products exist and work. That's my evidence. Keep me direct and calm.`,
+  interview: `Job interview. They'll ask about my background, why no diploma, what I've built. I know my stuff — I just freeze sometimes. Give me the first few words to unlock my answers. Keep me sounding like myself: direct, warm, not over-eager.`,
+  salary: `Salary negotiation. I need to hold my number. Don't let me fold. If they push back, keep me calm and anchored. Remind me of my value if I start to shrink.`
+};
+
+function loadPreset(key) {
+  document.getElementById('context').value = PRESETS[key];
+}
+
+// ─── SYSTEM PROMPTS ───────────────────────────
+function buildSystemPre() {
+  const ctx = document.getElementById('context').value.trim();
+  return `You are Maria's private AI coach speaking directly into her ear.
+
+ABOUT MARIA — know this cold:
+- 24-year-old self-taught Black female founder, Sweden
+- Built CF Studio solo: AI ad platform, delivers in 15 min what agencies charge $5K and 3 weeks for
+- Built Lumira solo: AI film director app, live camera coaching, cinematic output
+- No diploma, no funding, works unpaid at family's grocery store while building
+- AWS partnership: $200K+ infrastructure support — real, earned, not given
+- Tech stack: JavaScript, React, React Native, OpenAI, Claude, ElevenLabs, Runway, Vercel, AWS, full-stack
+
+THE SITUATION:
+${ctx || 'No context set. Ask Maria what she\'s preparing for.'}
+
+YOUR ROLE RIGHT NOW — BEFORE the conversation:
+She might be nervous or doubting herself. Respond like a best friend who knows exactly what she has built.
+NOT corporate. NOT generic. Short, specific, real.
+Maximum 2 sentences. Never a list. Never "you've got this" without specifics.
+If she says she's nervous: remind her of something concrete she already built or did.
+If she asks to practice: run the scenario with her, play the other person, be realistic not soft.
+If she says hi or something neutral: ask what she needs right now. Don't assume.`;
+}
+
+function buildSystemLive() {
+  const ctx = document.getElementById('context').value.trim();
+  return `You are Maria's private AI earpiece coach. You whisper real-time guidance only she can hear.
+
+THE SITUATION:
+${ctx || 'Live conversation. Read the room.'}
+
+ABOUT MARIA:
+- Built CF Studio (AI ad platform) and Lumira (AI film director) completely solo
+- Self-taught, no diploma, no funding — AWS partnership $200K+ infrastructure
+- Stack: JavaScript, React, React Native, OpenAI, Claude, ElevenLabs, Runway, Vercel, AWS
+- Unconventional background IS her strength. Never apologize for it.
+
+HER NATURAL VOICE — always match this:
+Direct. Says it once. Doesn't over-explain.
+Warm but not performative. Genuinely curious.
+Dry humor when comfortable. Owns her story.
+Example: "I built this because I needed it to exist" / "I don't have a diploma but I have two working products"
+
+IMPORTANT — SHE REPEATS AFTER YOU:
+She will hear your whisper and say it out loud herself. So give her:
+- The exact first 5-7 words she should say, in her voice
+- OR a short direction: "ask where they're from" / "pause, then say..."
+She runs with it from there. Keep it short so she can follow.
+
+TWO MOMENT TYPES:
+
+SMALL TALK / HUMAN MOMENTS:
+→ Don't give a scripted answer
+→ Whisper a direction: "ask where in Sweden they lived" or "ask if they miss it"
+→ Keep her warm, curious, real
+
+SUBSTANTIVE QUESTIONS (background, products, experience, why you):
+→ First 5-7 words in her voice, then stop
+→ She knows her stuff. Just unlock her.
+→ "Tell me about yourself" → whisper: "Lumira. I built an AI film director."
+→ "Why no diploma?" → whisper: "I was building. Two products exist."
+→ "Why should we fund you?" → whisper: "I build things that work with nothing."
+
+READ THE ROOM:
+Warm/casual → let personality show, keep her human
+Formal/testing → concise, confident, specific
+Skeptical/pushing back → don't shrink. Evidence. Calm.
+Culture fit → her story IS the culture fit
+
+STRICT FORMAT RULES:
+- MAX 10 words per whisper. Hard limit.
+- No filler. No "you should say". No "great question".
+- Imperative voice or literal first words only.
+- Fast. The conversation won't wait.`;
+}
+
+// ─── MODE ────────────────────────────────────
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('tabPre').classList.toggle('active', mode === 'pre');
+  document.getElementById('tabLive').classList.toggle('active', mode === 'live');
+  if (sessionActive && dc?.readyState === 'open') updateSession();
+}
+
+function goLive() {
+  setMode('live');
+  document.getElementById('liveBtn').classList.add('active');
+  addMsg('system', 'Switched to Live mode — whisper guidance active');
+}
+
+// ─── SESSION ──────────────────────────────────
+async function toggleSession() {
+  sessionActive ? stopSession() : await startSession();
+}
+
+async function startSession() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey.startsWith('sk-')) { setStatus('Paste a valid OpenAI API key first', 'error'); return; }
+
+  setStatus('Requesting microphone…', '');
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      },
+      video: false
+    });
+  } catch(e) {
+    setStatus('Microphone access denied', 'error'); return;
+  }
+
+  setStatus('Connecting…', '');
+  try {
+    // Ephemeral token
+    const res = await fetch('https://api.openai.com/v1/realtime/sessions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'gpt-4o-realtime-preview-2024-12-17', voice: 'shimmer' })
+    });
+
+    if (!res.ok) {
+      const e = await res.json();
+      setStatus('OpenAI: ' + (e.error?.message || res.status), 'error');
+      cleanup(); return;
+    }
+
+    const { client_secret } = await res.json();
+
+    // WebRTC
+    pc = new RTCPeerConnection();
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+
+    // Remote audio → earbuds
+    const audio = document.createElement('audio');
+    audio.autoplay = true;
+    document.body.appendChild(audio);
+    pc.ontrack = e => { audio.srcObject = e.streams[0]; };
+
+    // Data channel
+    dc = pc.createDataChannel('oai-events');
+    dc.onopen = () => {
+      sessionActive = true;
+      updateBtn();
+      setStatus('Warming up echo cancellation… (4s)', 'listening');
+      document.getElementById('liveBtn').disabled = false;
+      document.getElementById('clearBtn').disabled = false;
+      document.getElementById('contextCard').style.opacity = '0.4';
+      document.getElementById('contextCard').style.pointerEvents = 'none';
+      document.getElementById('visWrap').classList.add('visible');
+      startViz(localStream);
+      // Give Chrome AEC 4 seconds to learn speaker/mic relationship before AI starts listening
+      setTimeout(() => {
+        updateSession();
+        setStatus('Connected · Listening', 'connected');
+        addMsg('system', 'Echo cancellation ready. Speak now.');
+      }, 4000);
+    };
+    dc.onmessage = e => handleEvent(JSON.parse(e.data));
+    dc.onclose = () => { if (sessionActive) stopSession(); };
+
+    // SDP exchange
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    const sdpRes = await fetch(
+      'https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17',
+      {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${client_secret.value}`, 'Content-Type': 'application/sdp' },
+        body: offer.sdp
+      }
+    );
+
+    if (!sdpRes.ok) { setStatus('WebRTC failed: ' + sdpRes.status, 'error'); cleanup(); return; }
+    await pc.setRemoteDescription({ type: 'answer', sdp: await sdpRes.text() });
+
+  } catch(e) {
+    console.error(e);
+    setStatus('Error: ' + e.message, 'error');
+    cleanup();
+  }
+}
+
+function stopSession() {
+  cleanup();
+  setStatus('Session ended', '');
+  updateBtn();
+  document.getElementById('liveBtn').disabled = true;
+  document.getElementById('liveBtn').classList.remove('active');
+  document.getElementById('contextCard').style.opacity = '';
+  document.getElementById('contextCard').style.pointerEvents = '';
+  document.getElementById('visWrap').classList.remove('visible');
+}
+
+function cleanup() {
+  sessionActive = false;
+  pc?.close(); pc = null;
+  localStream?.getTracks().forEach(t => t.stop()); localStream = null;
+  if (animId) { cancelAnimationFrame(animId); animId = null; }
+  audioCtx?.close(); audioCtx = null;
+  analyser = null; dc = null;
+  clearCanvas();
+}
+
+function updateSession() {
+  sendEvent({
+    type: 'session.update',
+    session: {
+      instructions: currentMode === 'pre' ? buildSystemPre() : buildSystemLive(),
+      voice: 'shimmer',
+      modalities: ['audio', 'text'],
+      input_audio_transcription: { model: 'whisper-1' },
+      turn_detection: {
+        type: 'server_vad',
+        threshold: 0.8,
+        prefix_padding_ms: 300,
+        silence_duration_ms: 1500
+      },
+      max_response_output_tokens: 60
+    }
+  });
+}
+
+// ─── EVENTS ──────────────────────────────────
+let aiEl = null, aiText = '';
+
+function handleEvent(ev) {
+  switch(ev.type) {
+    case 'conversation.item.input_audio_transcription.completed':
+      if (ev.transcript?.trim()) addMsg('you', ev.transcript.trim());
+      break;
+    case 'response.audio_transcript.delta':
+      streamAI(ev.delta);
+      break;
+    case 'response.audio_transcript.done':
+      finalizeAI();
+      break;
+    case 'error':
+      setStatus('Error: ' + (ev.error?.message || 'unknown'), 'error');
+      break;
+  }
+}
+
+function streamAI(delta) {
+  if (!aiEl) {
+    aiText = '';
+    const feed = document.getElementById('feed');
+    document.getElementById('feedEmpty')?.remove();
+    const wrap = document.createElement('div');
+    wrap.className = 'msg whisper';
+    wrap.innerHTML = `<div class="msg-label">Whisper</div><div class="msg-body"></div>`;
+    feed.appendChild(wrap);
+    aiEl = wrap.querySelector('.msg-body');
+  }
+  aiText += delta;
+  aiEl.textContent = aiText;
+  document.getElementById('feed').scrollTop = 99999;
+}
+
+function finalizeAI() {
+  if (aiText) transcriptLog.push({ role: 'whisper', text: aiText });
+  aiEl = null; aiText = '';
+}
+
+function sendEvent(ev) {
+  if (dc?.readyState === 'open') dc.send(JSON.stringify(ev));
+}
+
+// ─── FEED ────────────────────────────────────
+function addMsg(role, text) {
+  const feed = document.getElementById('feed');
+  document.getElementById('feedEmpty')?.remove();
+  const el = document.createElement('div');
+  el.className = `msg ${role}`;
+  const labels = { you: 'You', whisper: 'Whisper', system: 'System' };
+  el.innerHTML = `<div class="msg-label">${labels[role]||role}</div><div class="msg-body">${esc(text)}</div>`;
+  feed.appendChild(el);
+  feed.scrollTop = 99999;
+  transcriptLog.push({ role, text });
+}
+
+function clearFeed() {
+  document.getElementById('feed').innerHTML = '<div class="feed-empty" id="feedEmpty">Conversation will appear here</div>';
+  transcriptLog = [];
+  aiEl = null; aiText = '';
+}
+
+function copyTranscript() {
+  const txt = transcriptLog.map(m => `[${m.role.toUpperCase()}] ${m.text}`).join('\n\n');
+  navigator.clipboard.writeText(txt).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy all', 2000);
+  });
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─── STATUS / BTN ────────────────────────────
+function setStatus(text, state) {
+  document.getElementById('statusText').textContent = text;
+  const dot = document.getElementById('dot');
+  dot.className = 'dot' + (state ? ' ' + state : '');
+}
+
+function updateBtn() {
+  const btn = document.getElementById('mainBtn');
+  btn.textContent = sessionActive ? 'Stop Session' : 'Start Session';
+  btn.classList.toggle('stop', sessionActive);
+}
+
+// ─── VISUALIZER ──────────────────────────────
+function startViz(stream) {
+  audioCtx = new AudioContext();
+  const src = audioCtx.createMediaStreamSource(stream);
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 128;
+  src.connect(analyser);
+  const canvas = document.getElementById('waveform');
+  const ctx = canvas.getContext('2d');
+  function draw() {
+    animId = requestAnimationFrame(draw);
+    const W = canvas.offsetWidth, H = canvas.offsetHeight;
+    canvas.width = W; canvas.height = H;
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(data);
+    ctx.clearRect(0,0,W,H);
+    const bw = W / data.length;
+    data.forEach((v, i) => {
+      const norm = v / 255;
+      const h = norm * H;
+      ctx.fillStyle = `rgba(201,168,76,${0.25 + norm * 0.75})`;
+      ctx.fillRect(i * bw, H - h, bw - 1, h);
+    });
+  }
+  draw();
+}
+
+function clearCanvas() {
+  const c = document.getElementById('waveform');
+  c.getContext('2d').clearRect(0,0,c.width,c.height);
+}
+
+// ─── INIT ────────────────────────────────────
+window.addEventListener('load', () => {
+  const k = sessionStorage.getItem('oai_key');
+  if (k) document.getElementById('apiKey').value = k;
+  document.getElementById('apiKey').addEventListener('input', e => {
+    if (e.target.value.startsWith('sk-')) sessionStorage.setItem('oai_key', e.target.value);
+  });
+});
+</script>
+</body>
+</html>
